@@ -12,10 +12,9 @@ struct Member {
 impl Member {
     fn display(&self) {
         println!(
-            "{} with income ${}.{:02}",
+            "{} with income ${}",
             self.name,
-            self.monthly_income / 100,
-            self.monthly_income % 100
+            cents_to_dollars(self.monthly_income)
         );
     }
 }
@@ -56,9 +55,8 @@ impl Fund {
 
     fn display_total(&self) {
         println!(
-            "Total funds in the pot: ${}.{:02}",
-            self.balance / 100,
-            self.balance % 100
+            "Total funds in the pot: ${}",
+            cents_to_dollars(self.balance)
         );
     }
 
@@ -69,10 +67,9 @@ impl Fund {
         for member in &self.members {
             self.balance += member.monthly_income;
             println!(
-                "{} contributed ${}.{:02} to the fund.",
+                "{} contributed ${} to the fund.",
                 member.name,
-                member.monthly_income / 100,
-                member.monthly_income % 100
+                cents_to_dollars(member.monthly_income)
             );
         }
 
@@ -81,16 +78,14 @@ impl Fund {
             if self.balance >= expense.amount {
                 self.balance -= expense.amount;
                 println!(
-                    "Paid ${}.{:02} for {}.",
-                    expense.amount / 100,
-                    expense.amount % 100,
+                    "Paid ${} for {}.",
+                    cents_to_dollars(expense.amount),
                     expense.description
                 );
             } else {
                 println!(
-                    "Insufficient funds to pay ${}.{:02} for {}.",
-                    expense.amount / 100,
-                    expense.amount % 100,
+                    "Insufficient funds to pay ${} for {}.",
+                    cents_to_dollars(expense.amount),
                     expense.description
                 );
             }
@@ -102,10 +97,9 @@ impl Fund {
             self.balance %= self.members.len() as i64; // retain the rounding leftovers in the fund
             for member in &mut self.members {
                 println!(
-                    "{} received a distribution of ${}.{:02}.",
+                    "{} received a distribution of ${}.",
                     member.name,
-                    leftover_per_member / 100,
-                    leftover_per_member % 100
+                    cents_to_dollars(leftover_per_member)
                 );
             }
         }
@@ -114,6 +108,10 @@ impl Fund {
         self.display_total();
         println!("--- End of Monthly Cycle ---\n");
     }
+}
+
+fn cents_to_dollars(number: i64) -> String {
+    format!("{}.{:02}", number / 100, number % 100)
 }
 
 fn save_to_file<T: Serialize>(data: &T, file_name: &str) {
@@ -211,18 +209,13 @@ fn main() {
     };
 
     println!("Initial Fund State:");
-    println!(
-        "Balance: ${}.{:02}.",
-        fund.balance / 100,
-        fund.balance % 100
-    );
+    println!("Balance: ${}.", cents_to_dollars(fund.balance));
     println!("Expenses:");
     for expense in &fund.expenses {
         println!(
-            "{}: ${}.{:02}",
+            "{}: ${}",
             expense.description,
-            expense.amount / 100,
-            expense.amount % 100
+            cents_to_dollars(expense.amount)
         );
     }
 
