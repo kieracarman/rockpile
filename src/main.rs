@@ -6,7 +6,7 @@ use std::io::{self, Write};
 #[derive(Serialize, Deserialize)]
 struct Member {
     name: String,
-    income: i64, // monthly income in cents
+    monthly_income: i64, // monthly income in cents
 }
 
 impl Member {
@@ -14,25 +14,33 @@ impl Member {
         println!(
             "{} with income ${}.{:02}",
             self.name,
-            self.income / 100,
-            self.income % 100
+            self.monthly_income / 100,
+            self.monthly_income % 100
         );
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct Expense {
+    description: String,
+    amount: i64,
+}
+
 // define a Fund struct to represent the shared pool
-#[derive(Default)]
+#[derive(Serialize, Deserialize)]
 struct Fund {
-    total: i64, // total money in the pot, in cents
+    balance: i64, // total money in the pot, in cents
+    members: Vec<Member>,
+    expenses: Vec<Expense>,
 }
 
 impl Fund {
     fn add_income(&mut self, amount: i64) {
-        self.total += amount;
+        self.balance += amount;
     }
 
     fn deduct_expenses(&mut self, amount: i64) {
-        self.total -= amount;
+        self.balance -= amount;
     }
 
     fn distribute(&mut self, members: &[Member]) -> i64 {
@@ -41,17 +49,70 @@ impl Fund {
             return 0;
         }
         let total_members = members.len() as i64;
-        let share_per_member = self.total / total_members;
-        self.total = 0; // reset fund after distribution
+        let share_per_member = self.balance / total_members;
+        self.balance = 0; // reset fund after distribution
         share_per_member
     }
 
     fn display_total(&self) {
         println!(
             "Total funds in the pot: ${}.{:02}",
-            self.total / 100,
-            self.total % 100
+            self.balance / 100,
+            self.balance % 100
         );
+    }
+
+    fn monthly_cycle(&mut self) {
+        println!("--- Starting Monthly Cycle ---");
+
+        // 1. add incomes to the fund balance
+        for member in &self.members {
+            self.balance += member.monthly_income;
+            println!(
+                "{} contributed ${}.{:02} to the fund.",
+                member.name,
+                member.monthly_income / 100,
+                member.monthly_income % 100
+            );
+        }
+
+        // 2. deduct expenses from the fund
+        for expense in &self.expenses {
+            if self.balance >= expense.amount {
+                self.balance -= expense.amount;
+                println!(
+                    "Paid ${}.{:02} for {}.",
+                    expense.amount / 100,
+                    expense.amount % 100,
+                    expense.description
+                );
+            } else {
+                println!(
+                    "Insufficient funds to pay ${}.{:02} for {}.",
+                    expense.amount / 100,
+                    expense.amount % 100,
+                    expense.description
+                );
+            }
+        }
+
+        // 3. redistribute leftover balance to members
+        if !self.members.is_empty() {
+            let leftover_per_member = self.balance / self.members.len() as i64;
+            self.balance %= self.members.len() as i64; // retain the rounding leftovers in the fund
+            for member in &mut self.members {
+                println!(
+                    "{} received a distribution of ${}.{:02}.",
+                    member.name,
+                    leftover_per_member / 100,
+                    leftover_per_member % 100
+                );
+            }
+        }
+
+        // final balance
+        self.display_total();
+        println!("--- End of Monthly Cycle ---\n");
     }
 }
 
@@ -107,53 +168,67 @@ fn add_member(members: &mut Vec<Member>) {
             continue;
         }
 
-        let income = get_valid_number(&format!("Enter {}'s income in dollars: ", name));
-        members.push(Member { name, income });
+        let monthly_income = get_valid_number(&format!("Enter {}'s income in dollars: ", name));
+        members.push(Member {
+            name,
+            monthly_income,
+        });
         println!("Member added successfully!");
     }
 }
 
 fn main() {
-    let mut members: Vec<Member> = load_from_file("members.json");
-    let mut fund = Fund::default();
+    let mut fund = Fund {
+        balance: 0,
+        members: vec![
+            Member {
+                name: "Alice".to_string(),
+                monthly_income: 100000,
+            },
+            Member {
+                name: "Bob".to_string(),
+                monthly_income: 75000,
+            },
+            Member {
+                name: "Charlie".to_string(),
+                monthly_income: 50000,
+            },
+        ],
+        expenses: vec![
+            Expense {
+                description: "Rent".to_string(),
+                amount: 150000,
+            },
+            Expense {
+                description: "Electricity".to_string(),
+                amount: 30000,
+            },
+            Expense {
+                description: "Internet".to_string(),
+                amount: 10000,
+            },
+        ],
+    };
 
-    // check if there are already saved members
-    if !members.is_empty() {
-        println!("Loaded members:");
-        for member in &members {
-            member.display();
-        }
-    } else {
-        println!("No saved members found.");
-    }
-
-    // add new members interactively
-    add_member(&mut members);
-
-    // save members to file
-    save_to_file(&members, "members.json");
-
-    // add incomes to the fund
-    for member in &members {
-        fund.add_income(member.income);
-        member.display();
-    }
-
-    // collect expense information
-    let expenses = get_valid_number("Enter total expenses in dollars: ");
-    fund.deduct_expenses(expenses);
+    println!("Initial Fund State:");
     println!(
-        "Expenses deducted: ${}.{:02}",
-        expenses / 100,
-        expenses % 100
+        "Balance: ${}.{:02}.",
+        fund.balance / 100,
+        fund.balance % 100
     );
-
-    // distribute remaining funds
-    let share = fund.distribute(&members);
-    if share > 0 {
-        println!("Each member gets: ${}.{:02}", share / 100, share % 100);
+    println!("Expenses:");
+    for expense in &fund.expenses {
+        println!(
+            "{}: ${}.{:02}",
+            expense.description,
+            expense.amount / 100,
+            expense.amount % 100
+        );
     }
 
-    // final fund status
-    fund.display_total();
+    // simulate 3 monthly cycles
+    for month in 1..=3 {
+        println!("Month {}", month);
+        fund.monthly_cycle();
+    }
 }
