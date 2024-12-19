@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{self, Read, Write};
 
-// define a Member struct to represent each participant
+// Member struct representing each participant
 #[derive(Serialize, Deserialize)]
 struct Member {
     name: String,
@@ -19,13 +19,20 @@ impl Member {
     }
 }
 
+// Expense struct for shared costs
 #[derive(Serialize, Deserialize)]
 struct Expense {
     description: String,
     amount: i64,
 }
 
-// define a Fund struct to represent the shared pool
+impl Expense {
+    fn display(&self) {
+        println!("{}: ${}", self.description, cents_to_dollars(self.amount));
+    }
+}
+
+// Fund struct for managing the shared pool
 #[derive(Serialize, Deserialize)]
 struct Fund {
     balance: i64, // total money in the pot, in cents
@@ -34,27 +41,65 @@ struct Fund {
 }
 
 impl Fund {
-    fn display_total(&self) {
-        println!(
-            "Total funds in the pot: ${}",
-            cents_to_dollars(self.balance)
-        );
+    fn add_member(&mut self) {
+        println!("Enter a member's name:");
+        let mut name = String::new();
+        io::stdin()
+            .read_line(&mut name)
+            .expect("Failed to read input");
+        let name = name.trim().to_string();
+
+        if name.is_empty() {
+            println!("Name cannot be empty.");
+            return;
+        }
+
+        if self.members.iter().any(|m| m.name == name) {
+            println!("This name already exists. Please enter a unique name.");
+            return;
+        }
+
+        let monthly_income = get_valid_number(&format!("Enter {}'s income in dollars: ", name));
+        self.members.push(Member {
+            name,
+            monthly_income,
+        });
+        println!("Member added successfully!");
     }
 
-    fn monthly_cycle(&mut self) {
-        println!("--- Starting Monthly Cycle ---");
+    fn add_expense(&mut self) {
+        println!("Enter expense description:");
+        let mut description = String::new();
+        io::stdin()
+            .read_line(&mut description)
+            .expect("Failed to read input");
+        let description = description.trim().to_string();
 
-        // 1. add incomes to the fund balance
+        if description.is_empty() {
+            println!("Description cannot be empty.");
+            return;
+        }
+
+        let amount = get_valid_number("Enter expense amount in dollars: ");
+        self.expenses.push(Expense {
+            description,
+            amount,
+        });
+        println!("Expense added successfully!");
+    }
+
+    fn add_income(&mut self) {
         for member in &self.members {
             self.balance += member.monthly_income;
             println!(
-                "{} contributed ${} to the fund.",
+                "{} contributed ${}.",
                 member.name,
                 cents_to_dollars(member.monthly_income)
             );
         }
+    }
 
-        // 2. deduct expenses from the fund
+    fn deduct_expenses(&mut self) {
         for expense in &self.expenses {
             if self.balance >= expense.amount {
                 self.balance -= expense.amount;
@@ -71,21 +116,51 @@ impl Fund {
                 );
             }
         }
+    }
 
-        // 3. redistribute leftover balance to members
-        if !self.members.is_empty() {
-            let leftover_per_member = self.balance / self.members.len() as i64;
-            self.balance %= self.members.len() as i64; // retain the rounding leftovers in the fund
-            for member in &mut self.members {
-                println!(
-                    "{} received a distribution of ${}.",
-                    member.name,
-                    cents_to_dollars(leftover_per_member)
-                );
-            }
+    fn redistribute(&mut self) {
+        if self.members.is_empty() {
+            println!("No members to redistribute funds.");
+            return;
         }
 
-        // final balance
+        let leftover_per_member = self.balance / self.members.len() as i64;
+        self.balance %= self.members.len() as i64;
+
+        for member in &self.members {
+            println!(
+                "{} received a distribution of ${}.",
+                member.name,
+                cents_to_dollars(leftover_per_member)
+            );
+        }
+    }
+
+    fn display_total(&self) {
+        println!(
+            "Total funds in the pot: ${}",
+            cents_to_dollars(self.balance)
+        );
+    }
+
+    fn display_state(&self) {
+        println!("\n--- Fund State ---");
+        self.display_total();
+        println!("\nMembers:");
+        for member in &self.members {
+            member.display();
+        }
+        println!("\nExpenses:");
+        for expense in &self.expenses {
+            expense.display();
+        }
+    }
+
+    fn monthly_cycle(&mut self) {
+        println!("\n--- Starting Monthly Cycle ---");
+        self.add_income();
+        self.deduct_expenses();
+        self.redistribute();
         self.display_total();
         println!("--- End of Monthly Cycle ---\n");
     }
@@ -128,96 +203,67 @@ fn get_valid_number(prompt: &str) -> i64 {
     }
 }
 
-fn add_member(members: &mut Vec<Member>) {
+fn get_menu_choice(prompt: &str) -> i32 {
     loop {
-        println!("Enter a member's name (or type 'done' to finish):");
-        let mut name = String::new();
+        print!("{}", prompt);
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
         io::stdin()
-            .read_line(&mut name)
+            .read_line(&mut input)
             .expect("Failed to read input");
-        let name = name.trim().to_string();
-
-        if name.to_lowercase() == "done" {
-            break;
+        match input.trim().parse::<i32>() {
+            Ok(num) if num > 0 => return num,
+            _ => println!("Please enter a valid positive number corresponding to the menu option."),
         }
-
-        if name.is_empty() {
-            println!("Name cannot be empty.");
-            continue;
-        }
-
-        if members.iter().any(|m| m.name == name) {
-            println!("This name already exists. Please enter a unique name.");
-            continue;
-        }
-
-        let monthly_income = get_valid_number(&format!("Enter {}'s income in dollars: ", name));
-        members.push(Member {
-            name,
-            monthly_income,
-        });
-        println!("Member added successfully!");
     }
 }
 
 fn main() {
     let mut fund = Fund {
         balance: 0,
-        members: vec![
-            Member {
-                name: "Alice".to_string(),
-                monthly_income: 100000,
-            },
-            Member {
-                name: "Bob".to_string(),
-                monthly_income: 75000,
-            },
-            Member {
-                name: "Charlie".to_string(),
-                monthly_income: 50000,
-            },
-        ],
-        expenses: vec![
-            Expense {
-                description: "Rent".to_string(),
-                amount: 150000,
-            },
-            Expense {
-                description: "Electricity".to_string(),
-                amount: 30000,
-            },
-            Expense {
-                description: "Internet".to_string(),
-                amount: 10000,
-            },
-        ],
+        members: Vec::new(),
+        expenses: Vec::new(),
     };
 
     let file_path = "fund.json";
 
-    println!("Initial Fund State:");
-    println!("Balance: ${}.", cents_to_dollars(fund.balance));
-    println!("Expenses:");
-    for expense in &fund.expenses {
-        println!(
-            "{}: ${}",
-            expense.description,
-            cents_to_dollars(expense.amount)
-        );
+    loop {
+        println!("\n--- RockPile Fund Management ---");
+        println!("1. View Fund State");
+        println!("2. Add a Member");
+        println!("3. Add an Expense");
+        println!("4. Run Monthly Cycle");
+        println!("5. Save Fund to File");
+        println!("6. Load Fund from File");
+        println!("7. Exit");
+
+        let choice = get_menu_choice("Enter your choice: ");
+
+        match choice {
+            1 => fund.display_state(),
+            2 => fund.add_member(),
+            3 => fund.add_expense(),
+            4 => fund.monthly_cycle(),
+            5 => {
+                if fund.save_to_file(file_path).is_ok() {
+                    println!("Fund saved to file successfully!");
+                } else {
+                    println!("Failed to save the fund to file.");
+                }
+            }
+            6 => {
+                if let Ok(loaded_fund) = Fund::load_from_file(file_path) {
+                    fund = loaded_fund;
+                    println!("Fund loaded successfully!");
+                } else {
+                    println!("Failed to load the fund from file.");
+                }
+            }
+            7 => {
+                println!("Exiting the program. Goodbye!");
+                break;
+            }
+            _ => println!("Invalid choice. Please try again."),
+        }
     }
-
-    // simulate 3 monthly cycles
-    for month in 1..=3 {
-        println!("Month {}", month);
-        fund.monthly_cycle();
-    }
-
-    fund.save_to_file(file_path);
-    println!("Fund saved to {}", file_path);
-
-    let loaded_fund = Fund::load_from_file(file_path).unwrap();
-    println!(
-        "Loaded fund balance: ${}",
-        cents_to_dollars(loaded_fund.balance)
-    );
 }
