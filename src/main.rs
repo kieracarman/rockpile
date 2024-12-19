@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 
 // define a Member struct to represent each participant
 #[derive(Serialize, Deserialize)]
@@ -98,6 +98,15 @@ impl Fund {
         println!("Fund state saved to {}", file_path);
         Ok(())
     }
+
+    fn load_from_file(file_path: &str) -> Result<Fund, std::io::Error> {
+        let mut file = File::open(file_path).expect("Failed to open file.");
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .expect("Failed to read file contents.");
+        let fund: Fund = serde_json::from_str(&content).expect("Failed to deserialize JSON.");
+        Ok(fund)
+    }
 }
 
 fn cents_to_dollars(number: i64) -> String {
@@ -184,6 +193,8 @@ fn main() {
         ],
     };
 
+    let file_path = "fund.json";
+
     println!("Initial Fund State:");
     println!("Balance: ${}.", cents_to_dollars(fund.balance));
     println!("Expenses:");
@@ -201,7 +212,12 @@ fn main() {
         fund.monthly_cycle();
     }
 
-    if let Err(e) = fund.save_to_file("fund.json") {
-        eprintln!("Failed to save fund state: {}", e);
-    }
+    fund.save_to_file(file_path);
+    println!("Fund saved to {}", file_path);
+
+    let loaded_fund = Fund::load_from_file(file_path).unwrap();
+    println!(
+        "Loaded fund balance: ${}",
+        cents_to_dollars(loaded_fund.balance)
+    );
 }
