@@ -156,7 +156,7 @@ impl Fund {
         }
     }
 
-    fn monthly_cycle(&mut self) {
+    fn process_monthly_cycle(&mut self) {
         println!("\n--- Starting Monthly Cycle ---");
         self.add_income();
         self.deduct_expenses();
@@ -243,7 +243,7 @@ fn main() {
             1 => fund.display_state(),
             2 => fund.add_member(),
             3 => fund.add_expense(),
-            4 => fund.monthly_cycle(),
+            4 => fund.process_monthly_cycle(),
             5 => {
                 if fund.save_to_file(file_path).is_ok() {
                     println!("Fund saved to file successfully!");
