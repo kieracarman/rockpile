@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::File;
 use std::io::{self, Write};
 
 // define a Member struct to represent each participant
@@ -34,25 +34,6 @@ struct Fund {
 }
 
 impl Fund {
-    fn add_income(&mut self, amount: i64) {
-        self.balance += amount;
-    }
-
-    fn deduct_expenses(&mut self, amount: i64) {
-        self.balance -= amount;
-    }
-
-    fn distribute(&mut self, members: &[Member]) -> i64 {
-        if members.is_empty() {
-            println!("No members to distribute funds.");
-            return 0;
-        }
-        let total_members = members.len() as i64;
-        let share_per_member = self.balance / total_members;
-        self.balance = 0; // reset fund after distribution
-        share_per_member
-    }
-
     fn display_total(&self) {
         println!(
             "Total funds in the pot: ${}",
@@ -108,24 +89,19 @@ impl Fund {
         self.display_total();
         println!("--- End of Monthly Cycle ---\n");
     }
+
+    fn save_to_file(&self, file_path: &str) -> Result<(), std::io::Error> {
+        let mut file = File::create(file_path).expect("Failed to create file.");
+        let json = serde_json::to_string_pretty(&self).expect("Failed to serialize Fund to JSON.");
+        file.write_all(json.as_bytes())
+            .expect("Failed to write to file.");
+        println!("Fund state saved to {}", file_path);
+        Ok(())
+    }
 }
 
 fn cents_to_dollars(number: i64) -> String {
     format!("{}.{:02}", number / 100, number % 100)
-}
-
-fn save_to_file<T: Serialize>(data: &T, file_name: &str) {
-    let json_data = serde_json::to_string(data).expect("Failed to serialize data");
-    fs::write(file_name, json_data).expect("Failed to save data to file");
-    println!("Data saved successfully!");
-}
-
-fn load_from_file<T>(file_name: &str) -> T
-where
-    T: for<'de> Deserialize<'de> + Default,
-{
-    let json_data = fs::read_to_string(file_name).unwrap_or_else(|_| "[]".to_string());
-    serde_json::from_str(&json_data).unwrap_or_default()
 }
 
 fn get_valid_number(prompt: &str) -> i64 {
@@ -223,5 +199,9 @@ fn main() {
     for month in 1..=3 {
         println!("Month {}", month);
         fund.monthly_cycle();
+    }
+
+    if let Err(e) = fund.save_to_file("fund.json") {
+        eprintln!("Failed to save fund state: {}", e);
     }
 }

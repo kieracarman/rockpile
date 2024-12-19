@@ -1,0 +1,31 @@
+{
+  "balance": 0,
+  "members": [
+    {
+      "name": "Alice",
+      "monthly_income": 100000
+    },
+    {
+      "name": "Bob",
+      "monthly_income": 75000
+    },
+    {
+      "name": "Charlie",
+      "monthly_income": 50000
+    }
+  ],
+  "expenses": [
+    {
+      "description": "Rent",
+      "amount": 150000
+    },
+    {
+      "description": "Electricity",
+      "amount": 30000
+    },
+    {
+      "description": "Internet",
+      "amount": 10000
+    }
+  ]
+}
